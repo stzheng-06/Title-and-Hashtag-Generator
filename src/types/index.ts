@@ -19,6 +19,7 @@ export interface Config {
   baseTags: string
   generationRules: GenerationRule[]
   customRules: string[]
+  customPrompt?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -34,11 +35,25 @@ export interface GenerationResult {
 }
 
 /**
+ * 历史记录项接口
+ */
+export interface HistoryItem {
+  id: string
+  keywords: string[]
+  titles: string[]
+  tags: string[]
+  configName: string
+  model: string
+  createdAt: string
+}
+
+/**
  * API 请求接口
  */
 export interface GenerateRequest {
   keywords: string[]
   config: Config
+  generationType?: 'titles' | 'tags'
 }
 
 /**
@@ -76,11 +91,14 @@ export const AI_MODELS = [
   { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', description: '轻量快速，推荐使用' },
   { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: '平衡性能与速度' },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', description: '最新版本轻量模型' },
+  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite Preview', description: '最新预览版轻量模型' },
   { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: '快速、经济的选择' },
   { value: 'gpt-4', label: 'GPT-4', description: '更强大的理解和创作能力' },
   { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', description: '速度和性能的平衡' },
+  { value: 'gpt-5.3-chat-latest', label: 'GPT-5.3 Chat Latest', description: '最新版 GPT 聊天模型' },
   { value: 'claude-3-sonnet', label: 'Claude-3 Sonnet', description: '高质量的文本生成' },
   { value: 'claude-3-haiku', label: 'Claude-3 Haiku', description: '快速响应' },
+  { value: 'deepseek-v3.2-fast', label: 'DeepSeek V3.2 Fast', description: '高速推理，中文优化' },
 ] as const
 
 export type AIModel = typeof AI_MODELS[number]['value']
@@ -129,6 +147,12 @@ export const DEFAULT_GENERATION_RULES: GenerationRule[] = [
     id: 'relevant-only',
     name: '相关性要求',
     description: '只生成与关键词高度相关的内容',
+    enabled: true,
+  },
+  {
+    id: 'language-consistency',
+    name: '语言一致性',
+    description: '标题和标签均使用配置所指定的输出语言生成，不得混用其他语言',
     enabled: true,
   },
 ]

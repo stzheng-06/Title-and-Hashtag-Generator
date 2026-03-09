@@ -30,8 +30,6 @@ export function SimpleKeywordInput({ onGenerate, isLoading, disabled }: SimpleKe
     }
   }
 
-
-
   return (
     <Card>
       <CardHeader>

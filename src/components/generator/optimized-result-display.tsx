@@ -7,14 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import type { GenerationResult } from '@/types'
+import { Motion, MotionList } from '@/components/ui/motion'
 
 interface OptimizedResultDisplayProps {
   results: GenerationResult
   onRegenerate: () => void
-  isLoading: boolean
+  onRegenerateTitles: () => void
+  onRegenerateTags: () => void
+  isTitlesLoading: boolean
+  isTagsLoading: boolean
 }
 
-export function OptimizedResultDisplay({ results, onRegenerate, isLoading }: OptimizedResultDisplayProps) {
+// 去除标题前面的 # 符号
+const cleanTitle = (title: string): string => {
+  return title.replace(/^#+\s*/, '').trim()
+}
+
+export function OptimizedResultDisplay({ results, onRegenerate, onRegenerateTitles, onRegenerateTags, isTitlesLoading, isTagsLoading }: OptimizedResultDisplayProps) {
   const [copiedItems, setCopiedItems] = useState<Set<string>>(new Set())
 
   const copyToClipboard = async (text: string, type: string, index?: number) => {
@@ -31,24 +40,24 @@ export function OptimizedResultDisplay({ results, onRegenerate, isLoading }: Opt
         })
       }, 2000)
       
-      toast.success(`已复制${type === 'combo' ? '内容' : type === 'title' ? '标题' : '标签'}`)
+      toast.success(`已复制${type === 'combo' ? '内容' : type === 'title' ? '标题' : '标签'}`, { duration: 500 })
     } catch (error) {
-      toast.error('复制失败')
+      toast.error('复制失败', { duration: 500 })
     }
   }
 
   const copyAllCombos = () => {
     const allCombos = results.titles.map(title => {
       const hashtags = results.tags.map(tag => `#${tag}`).join(' ')
-      return `${title}\n\n${hashtags}`
+      return `${cleanTitle(title)}\n\n${hashtags}`
     }).join('\n\n---\n\n')
     copyToClipboard(allCombos, 'combo')
   }
 
   const copyCombo = (titleIndex: number) => {
-    const title = results.titles[titleIndex]
+    const title = results.titles[titleIndex] || ''
     const hashtags = results.tags.map(tag => `#${tag}`).join(' ')
-    const combo = `${title}\n\n${hashtags}`
+    const combo = `${cleanTitle(title)}\n\n${hashtags}`
     copyToClipboard(combo, 'combo', titleIndex)
   }
 
@@ -57,11 +66,11 @@ export function OptimizedResultDisplay({ results, onRegenerate, isLoading }: Opt
 
 ${results.titles.map((title, index) => {
   const hashtags = results.tags.map(tag => `#${tag}`).join(' ')
-  return `=== 组合 ${index + 1} ===\n${title}\n\n${hashtags}`
+  return `=== 组合 ${index + 1} ===\n${cleanTitle(title)}\n\n${hashtags}`
 }).join('\n\n')}
 
 === 所有标题 ===
-${results.titles.map((title, index) => `${index + 1}. ${title}`).join('\n')}
+${results.titles.map((title, index) => `${index + 1}. ${cleanTitle(title)}`).join('\n')}
 
 === 所有标签 ===
 ${results.tags.map(tag => `#${tag}`).join(' ')}
@@ -83,7 +92,7 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
     
-    toast.success('结果已下载')
+    toast.success('结果已下载', { duration: 500 })
   }
 
   const isCopied = (type: string, index?: number) => {
@@ -92,7 +101,8 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
   }
 
   return (
-    <Card>
+    <Motion from={{ opacity: 0, translateY: 18, scale: 0.98 }} duration={420}>
+      <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -104,10 +114,10 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
               variant="outline"
               size="sm"
               onClick={onRegenerate}
-              disabled={isLoading}
+              disabled={isTitlesLoading || isTagsLoading}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              重新生成
+              <RefreshCw className={`h-4 w-4 mr-2 ${(isTitlesLoading || isTagsLoading) ? 'animate-spin' : ''}`} />
+              重新生成全部
             </Button>
             <Button
               variant="outline"
@@ -146,8 +156,15 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
       <CardContent className="space-y-6">
         {/* 标题+标签组合 */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">标题 + 标签组合</h3>
-          <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">标题 + 标签组合</h3>
+          </div>
+          <MotionList
+            from={{ opacity: 0, translateY: 14 }}
+            stagger={55}
+            duration={360}
+            baseDelay={60}
+          >
             {results.titles.map((title, index) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 hover:bg-muted/30 transition-colors">
                 {/* 标题 */}
@@ -166,7 +183,7 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
                       )}
                     </Button>
                   </div>
-                  <p className="text-lg font-medium leading-relaxed">{title}</p>
+                  <p className="text-lg font-medium leading-relaxed">{cleanTitle(title)}</p>
                 </div>
                 
                 <Separator />
@@ -180,7 +197,7 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
                 </div>
               </div>
             ))}
-          </div>
+          </MotionList>
         </div>
 
         <Separator />
@@ -189,18 +206,29 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">所有标签</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => copyToClipboard(results.tags.map(tag => `#${tag}`).join(' '), 'tag')}
-            >
-              {isCopied('tag') ? (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              ) : (
-                <Copy className="h-4 w-4 mr-2" />
-              )}
-              复制所有标签
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRegenerateTags}
+                disabled={isTitlesLoading || isTagsLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isTagsLoading ? 'animate-spin' : ''}`} />
+                重新生成标签
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(results.tags.map(tag => `#${tag}`).join(' '), 'tag')}
+              >
+                {isCopied('tag') ? (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-2" />
+                )}
+                复制所有标签
+              </Button>
+            </div>
           </div>
           
           <div className="p-4 bg-muted/50 rounded-lg">
@@ -211,5 +239,6 @@ ${results.requestId ? `请求 ID: ${results.requestId}` : ''}
         </div>
       </CardContent>
     </Card>
+    </Motion>
   )
 }
