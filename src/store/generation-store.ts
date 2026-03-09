@@ -1,81 +1,127 @@
 import { create } from 'zustand'
 import type { GenerationResult, Config } from '@/types'
-import { analyzeAPIError, fetchWithRetry } from '@/lib/api-utils'
 
 interface GenerationStore {
-  isLoading: boolean
+  isTitlesLoading: boolean
+  isTagsLoading: boolean
   results: GenerationResult | null
   error: string | null
-  
+  _lastKeywords: string[]
+  _lastConfig: Config | null
+
   // Actions
   generateContent: (keywords: string[], config: Config) => Promise<void>
+  regenerateTitles: () => Promise<void>
+  regenerateTags: () => Promise<void>
   clearResults: () => void
   setError: (error: string | null) => void
-  setLoading: (loading: boolean) => void
-  checkAPIHealth: () => Promise<boolean>
+}
+
+const callGenerateAPI = async (
+  keywords: string[],
+  config: Config,
+  generationType: 'titles' | 'tags',
+): Promise<GenerationResult> => {
+  const response = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keywords, config, generationType }),
+  })
+  const data = await response.json()
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || '生成失败')
+  }
+  return data.data as GenerationResult
 }
 
 export const useGenerationStore = create<GenerationStore>((set, get) => ({
-  isLoading: false,
+  isTitlesLoading: false,
+  isTagsLoading: false,
   results: null,
   error: null,
+  _lastKeywords: [],
+  _lastConfig: null,
 
   generateContent: async (keywords, config) => {
-    set({ isLoading: true, error: null })
-    
-    const maxRetries = 3
+    set({ isTitlesLoading: true, isTagsLoading: true, error: null, _lastKeywords: keywords, _lastConfig: config })
 
-    try {
-      const response = await fetchWithRetry('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          keywords,
-          config,
-        }),
-      }, maxRetries)
-
-      let data: any
+    // 自定义提示词：单次调用（不拆分）
+    if ((config as any).customPrompt?.trim()) {
       try {
-        data = await response.json()
-      } catch (parseError) {
-        throw new Error('服务器响应格式错误')
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keywords, config }),
+        })
+        const data = await response.json()
+        if (!response.ok || !data.success) throw new Error(data.error || '生成失败')
+        set({ results: data.data, isTitlesLoading: false, isTagsLoading: false, error: null })
+      } catch (error) {
+        set({
+          isTitlesLoading: false,
+          isTagsLoading: false,
+          error: error instanceof Error ? error.message : '未知错误',
+          results: null,
+        })
       }
+      return
+    }
 
-      if (!response.ok) {
-        throw new Error(data.error || `请求失败 (${response.status})`)
-      }
+    // 默认：标题和标签并行独立生成
+    const [titlesResult, tagsResult] = await Promise.allSettled([
+      callGenerateAPI(keywords, config, 'titles'),
+      callGenerateAPI(keywords, config, 'tags'),
+    ])
 
-      if (!data.success) {
-        throw new Error(data.error || '生成失败')
-      }
+    const titles = titlesResult.status === 'fulfilled' ? titlesResult.value.titles : []
+    const tags = tagsResult.status === 'fulfilled' ? tagsResult.value.tags : []
+    const firstError =
+      titlesResult.status === 'rejected'
+        ? (titlesResult.reason as Error)?.message
+        : tagsResult.status === 'rejected'
+          ? (tagsResult.reason as Error)?.message
+          : null
 
-      if (!data.data || (!data.data.titles && !data.data.tags)) {
-        throw new Error('生成结果为空')
-      }
+    set({
+      isTitlesLoading: false,
+      isTagsLoading: false,
+      results: { titles, tags },
+      error: firstError,
+    })
+  },
 
-      set({ 
-        results: data.data,
-        isLoading: false,
-        error: null 
-      })
+  regenerateTitles: async () => {
+    const { _lastKeywords, _lastConfig, results } = get()
+    if (!_lastKeywords.length || !_lastConfig) return
+    set({ isTitlesLoading: true, error: null })
+    try {
+      const data = await callGenerateAPI(_lastKeywords, _lastConfig, 'titles')
+      set(state => ({
+        isTitlesLoading: false,
+        results: state.results ? { ...state.results, titles: data.titles } : data,
+      }))
     } catch (error) {
-      const errorInfo = analyzeAPIError(error)
-      
-      console.error('Generation error:', {
-        message: errorInfo.message,
-        code: errorInfo.code,
-        retryable: errorInfo.retryable,
-        timestamp: new Date().toISOString(),
-        keywords: keywords.slice(0, 5), // 只记录前5个关键词，避免日志过长
+      set({
+        isTitlesLoading: false,
+        error: error instanceof Error ? error.message : '未知错误',
       })
-      
-      set({ 
-        error: errorInfo.userFriendly,
-        isLoading: false,
-        results: null 
+    }
+  },
+
+  regenerateTags: async () => {
+    const { _lastKeywords, _lastConfig, results } = get()
+    if (!_lastKeywords.length || !_lastConfig) return
+    set({ isTagsLoading: true, error: null })
+    try {
+      const data = await callGenerateAPI(_lastKeywords, _lastConfig, 'tags')
+      set(state => ({
+        isTagsLoading: false,
+        results: state.results ? { ...state.results, tags: data.tags } : data,
+      }))
+    } catch (error) {
+      set({
+        isTagsLoading: false,
+        error: error instanceof Error ? error.message : '未知错误',
       })
     }
   },
@@ -86,23 +132,6 @@ export const useGenerationStore = create<GenerationStore>((set, get) => ({
 
   setError: (error) => {
     set({ error })
-  },
-
-  setLoading: (loading) => {
-    set({ isLoading: loading })
-  },
-
-  checkAPIHealth: async () => {
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000), // 5秒超时
-      })
-      return response.ok
-    } catch (error) {
-      console.warn('API health check failed:', error)
-      return false
-    }
   },
 }))
 
@@ -118,16 +147,14 @@ export const formatKeywords = (input: string): string[] => {
 // 验证配置的辅助函数
 export const validateConfig = (config: Config): string[] => {
   const errors: string[] = []
-  
+
   if (!config.name.trim()) {
     errors.push('配置名称不能为空')
   }
-  
+
   if (!config.backgroundInfo.trim()) {
     errors.push('背景信息不能为空')
   }
-  
-  // 基础标签现在是可选的，不需要验证
-  
+
   return errors
 }
