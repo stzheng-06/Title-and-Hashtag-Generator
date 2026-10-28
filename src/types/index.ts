@@ -88,20 +88,19 @@ export type OutputLanguage = typeof OUTPUT_LANGUAGES[number]['value']
  * 支持的AI模型
  */
 export const AI_MODELS = [
-  { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', description: '轻量快速，推荐使用' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: '平衡性能与速度' },
-  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', description: '最新版本轻量模型' },
-  { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite Preview', description: '最新预览版轻量模型' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: '快速、经济的选择' },
-  { value: 'gpt-4', label: 'GPT-4', description: '更强大的理解和创作能力' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', description: '速度和性能的平衡' },
-  { value: 'gpt-5.3-chat-latest', label: 'GPT-5.3 Chat Latest', description: '最新版 GPT 聊天模型' },
-  { value: 'claude-3-sonnet', label: 'Claude-3 Sonnet', description: '高质量的文本生成' },
-  { value: 'claude-3-haiku', label: 'Claude-3 Haiku', description: '快速响应' },
-  { value: 'deepseek-v3.2-fast', label: 'DeepSeek V3.2 Fast', description: '高速推理，中文优化' },
+  { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', description: 'deepseek-v4-flash' },
+  { value: 'qwen3.8-flash', label: 'Qwen 3.8 Flash', description: 'qwen3.8-flash' },
+  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', description: 'gpt-5.4-mini' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna', description: 'gpt-6-luna' },
+  { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', description: 'gemini-3.6-flash' },
 ] as const
 
+export const DEFAULT_AI_MODEL = AI_MODELS[0].value
+
 export type AIModel = typeof AI_MODELS[number]['value']
+
+export const resolveAIModel = (value: unknown): AIModel =>
+  AI_MODELS.find(model => model.value === value)?.value ?? DEFAULT_AI_MODEL
 
 /**
  * 预设生成规则

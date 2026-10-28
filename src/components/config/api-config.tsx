@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAPIConfigStore } from '@/store/api-config-store'
-import { AI_MODELS } from '@/types'
+import { AI_MODELS, DEFAULT_AI_MODEL } from '@/types'
 import { toast } from 'sonner'
 
 const apiConfigSchema = z.object({
@@ -38,7 +38,7 @@ export function APIConfig() {
     resolver: zodResolver(apiConfigSchema),
     defaultValues: {
       apiKey: '',
-      selectedModel: AI_MODELS[0].value,
+      selectedModel: DEFAULT_AI_MODEL,
     },
   })
 
@@ -96,6 +96,7 @@ export function APIConfig() {
                 variant="ghost"
                 size="sm"
                 className="absolute right-0 top-0 h-full px-3"
+                aria-label={showApiKey ? '隐藏 API Key' : '显示 API Key'}
                 onClick={() => setShowApiKey(!showApiKey)}
               >
                 {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -105,7 +106,7 @@ export function APIConfig() {
               <p className="text-sm text-destructive">{errors.apiKey.message}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              API Key 将安全存储在本地，不会上传到服务器
+              API Key 保存在当前浏览器中，生成内容时会发送至本站接口并用于调用 AI 服务。
             </p>
           </div>
 
@@ -114,9 +115,9 @@ export function APIConfig() {
             <Label htmlFor="selectedModel">AI模型 *</Label>
             <Select
               onValueChange={(value) => setValue('selectedModel', value)}
-              defaultValue={watch('selectedModel')}
+              value={watch('selectedModel')}
             >
-              <SelectTrigger>
+              <SelectTrigger id="selectedModel">
                 <SelectValue placeholder="选择AI模型" />
               </SelectTrigger>
               <SelectContent>

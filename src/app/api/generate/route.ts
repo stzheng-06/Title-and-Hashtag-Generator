@@ -1,3 +1,4 @@
+import { resolveAIModel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 import type { GenerateRequest, GenerateResponse, Config } from '@/types'
 
@@ -126,7 +127,7 @@ const callAIHubMixAPI = async (prompt: string, apiKey: string, config: FullConfi
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: config.selectedModel || 'gemini-2.0-flash-lite',
+        model: resolveAIModel(config.selectedModel),
         messages: [
           {
             role: 'user',

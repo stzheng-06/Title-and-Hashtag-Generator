@@ -1,3 +1,4 @@
+import { resolveAIModel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 // 验证 API Key 格式
@@ -15,7 +16,7 @@ const callAIHubMixAPI = async (prompt: string, apiKey: string, model: string) =>
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: model || 'gemini-2.0-flash-lite',
+        model: resolveAIModel(model),
         messages: [
           {
             role: 'user',
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
 }`
 
     // 调用 AI API
-    const aiResponse = await callAIHubMixAPI(prompt, apiKey, model || 'gemini-2.0-flash-lite')
+    const aiResponse = await callAIHubMixAPI(prompt, apiKey, resolveAIModel(model))
 
     if (!aiResponse.choices || aiResponse.choices.length === 0) {
       throw new Error('AI 响应格式错误')
